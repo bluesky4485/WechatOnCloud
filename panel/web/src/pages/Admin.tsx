@@ -12,6 +12,25 @@ const MenuIcon = (
   </svg>
 );
 
+// 折叠菜单的展开箭头
+const CaretIcon = (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 9l6 6 6-6" />
+  </svg>
+);
+
+// 友好空状态：圆形图标 + 标题 + 说明 + 可选引导按钮（沿用首页 .empty-state 样式）
+function EmptyState({ icon, title, sub, action }: { icon: string; title: string; sub?: string; action?: JSX.Element }) {
+  return (
+    <div className="empty-state">
+      <div className="empty-blob">{icon}</div>
+      <div className="empty-title">{title}</div>
+      {sub && <div className="empty-sub">{sub}</div>}
+      {action && <div className="empty-action">{action}</div>}
+    </div>
+  );
+}
+
 export default function Admin({ onOpenMenu, onChangePassword }: { onOpenMenu: () => void; onChangePassword: () => void }) {
   const nav = useNavigate();
   const { user } = useAuth();
@@ -210,9 +229,16 @@ export default function Admin({ onOpenMenu, onChangePassword }: { onOpenMenu: ()
               </button>
             </div>
             {instances.length === 0 ? (
-              <div className="list">
-                <div className="muted small" style={{ padding: '14px 16px' }}>暂无实例</div>
-              </div>
+              <EmptyState
+                icon="🖥️"
+                title="还没有微信实例"
+                sub="新建一个实例，进入后扫码登录即可在浏览器里用微信"
+                action={
+                  <button className="btn btn-primary" onClick={() => setCreatingInst(true)}>
+                    ＋ 新建微信实例
+                  </button>
+                }
+              />
             ) : (
               <div className="inst-grid">
                 {instances.map((inst) => (
@@ -243,9 +269,16 @@ export default function Admin({ onOpenMenu, onChangePassword }: { onOpenMenu: ()
               </button>
             </div>
             {subs.length === 0 ? (
-              <div className="list">
-                <div className="muted small" style={{ padding: '14px 16px' }}>暂无子账号</div>
-              </div>
+              <EmptyState
+                icon="👥"
+                title="还没有子账号"
+                sub="子账号是登录这套面板的身份，可按账号分配能访问哪些实例"
+                action={
+                  <button className="btn btn-primary" onClick={() => setCreatingUser(true)}>
+                    ＋ 新建子账号
+                  </button>
+                }
+              />
             ) : (
               <div className="inst-grid">
                 {subs.map((u) => (
@@ -800,6 +833,7 @@ function InstanceAdminCard({
   const installed = wx.installed && wx.phase !== 'downloading';
   const offline = inst.runtime !== 'running';
   const working = !!acting || busy; // 生命周期操作中 或 微信下载/更新中 → 锁住卡片
+  const [menuOpen, setMenuOpen] = useState(false); // 「管理」折叠菜单是否展开
 
   let badge: { text: string; cls: string };
   if (acting) badge = { text: '处理中', cls: 'tag-busy' };
@@ -851,41 +885,62 @@ function InstanceAdminCard({
             )}
           </div>
 
-          <div className="inst-admin-links">
-            {!offline && (
-              <button className="btn-text" onClick={() => onTrigger(inst, installed ? 'update' : 'install')}>
-                {installed ? '更新微信' : '下载安装'}
-              </button>
-            )}
-            <button className="btn-text" onClick={onUpgrade} title="拉取最新镜像并重建（保留聊天记录），把实例更新到新版">
-              升级实例
-            </button>
-            {!offline && (
-              <button className="btn-text" onClick={onRestart}>
-                重启
-              </button>
-            )}
-            {!offline && (
-              <button className="btn-text" onClick={onStop}>
-                停止
-              </button>
-            )}
-            <button className="btn-text" onClick={onRename}>
-              重命名
-            </button>
-            <button className="btn-text" onClick={onAssign}>
-              分配账户
-            </button>
-            <button className="btn-text" onClick={() => window.open(api.instanceLogsUrl(inst.id), '_blank')} title="查看实例容器日志（排错）">
-              日志
-            </button>
-            <button className="btn-text" onClick={onSecurity} title="设置内存阈值：超过 soft 且无人会话时柔和重启；超过 hard 强制重启">
-              安全
-            </button>
-            <button className="btn-text danger" onClick={onDelete}>
-              删除
-            </button>
-          </div>
+          <button className={'inst-menu-toggle' + (menuOpen ? ' open' : '')} onClick={() => setMenuOpen((v) => !v)}>
+            <span>管理</span>
+            <span className="inst-menu-caret">{CaretIcon}</span>
+          </button>
+
+          {menuOpen && (
+            <div className="inst-menu">
+              <div className="inst-menu-group">
+                <div className="inst-menu-label">运维</div>
+                <div className="inst-menu-items">
+                  {!offline && (
+                    <button className="btn-text" onClick={() => onTrigger(inst, installed ? 'update' : 'install')}>
+                      {installed ? '更新微信' : '下载安装'}
+                    </button>
+                  )}
+                  <button className="btn-text" onClick={onUpgrade} title="拉取最新镜像并重建（保留聊天记录）">
+                    升级实例
+                  </button>
+                  {!offline && (
+                    <button className="btn-text" onClick={onRestart}>
+                      重启
+                    </button>
+                  )}
+                  {!offline && (
+                    <button className="btn-text" onClick={onStop}>
+                      停止
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="inst-menu-group">
+                <div className="inst-menu-label">设置</div>
+                <div className="inst-menu-items">
+                  <button className="btn-text" onClick={onRename}>
+                    重命名
+                  </button>
+                  <button className="btn-text" onClick={onAssign}>
+                    分配账户
+                  </button>
+                  <button className="btn-text" onClick={() => window.open(api.instanceLogsUrl(inst.id), '_blank')} title="查看实例容器日志">
+                    日志
+                  </button>
+                  <button className="btn-text" onClick={onSecurity} title="内存阈值自愈">
+                    安全
+                  </button>
+                </div>
+              </div>
+              <div className="inst-menu-group inst-menu-danger">
+                <div className="inst-menu-items">
+                  <button className="btn-text danger" onClick={onDelete}>
+                    删除实例
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

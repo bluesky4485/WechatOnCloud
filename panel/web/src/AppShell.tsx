@@ -272,12 +272,20 @@ function HomeView({ onOpenMenu, onChangePassword }: { onOpenMenu: () => void; on
           <div className="inst-grid">
             {instances.map((inst) => {
               const st = statusOf(inst);
+              const meta = inst.wechat.installed
+                ? `微信 ${inst.wechat.version || ''}`.trim()
+                : inst.runtime === 'running'
+                  ? '待下载安装微信'
+                  : '';
               return (
                 <button key={inst.id} className="home-card" onClick={() => nav(`/i/${inst.id}`)}>
                   <span className="home-card-av">{inst.name.slice(0, 1)}</span>
                   <span className="home-card-main">
                     <span className="home-card-name">{inst.name}</span>
-                    <span className={'home-card-st ' + st.cls}>● {st.text}</span>
+                    <span className="home-card-meta">
+                      <span className={'home-card-st ' + st.cls}>● {st.text}</span>
+                      {meta && <span className="home-card-ver">{meta}</span>}
+                    </span>
                   </span>
                   <span className="enter-arrow">›</span>
                 </button>

@@ -92,3 +92,20 @@ docker buildx build --platform linux/amd64,linux/arm64 \
    - **Secrets** 标签 → `TELEGRAM_BOT_TOKEN` = [@BotFather](https://t.me/BotFather) 给的 token。
 
 之后每次「发布 Release / 新建 issue」都会自动推送。想关掉 issue 推送，删掉 workflow 里 `on:` 下的 `issues:` 即可。
+
+---
+
+## Telegram 命令机器人（可选，免服务器，轮询版）
+
+除了发布通知，仓库还内置 [.github/workflows/telegram-bot.yml](../.github/workflows/telegram-bot.yml) + [.github/scripts/telegram-bot.mjs](../.github/scripts/telegram-bot.mjs)：让机器人在**私聊 / 群组**里响应命令，跑在 GitHub Actions cron 上，**不需要服务器**。
+
+命令：`/help`、`/releases`、`/release <tag>`、`/issues`、`/issue <编号>`。
+
+启用：
+
+1. 复用上面的 `TELEGRAM_BOT_TOKEN`（Secret）；
+2. 仓库 **Settings → Secrets and variables → Actions → Variables** 新建 `TELEGRAM_BOT_ENABLED = true`（不设为 `true` 则该工作流不运行）；
+3. 把机器人拉进群组，或在私聊里 `/start`。
+
+> **原理**：每 5 分钟（cron 最小间隔）调用 `getUpdates` 拉取待处理命令、回复、再用 `offset` 向 Telegram 确认（Telegram 自己保存 offset，**无需任何持久化存储**）。
+> **局限**：命令**非实时**——受 cron 最小 5 分钟 + GitHub 排队延迟影响；且 GitHub 会在仓库 60 天无活动时暂停定时任务（去 Actions 页手动重启即可）。想立即处理一次：Actions → telegram-bot → **Run workflow**。要真正实时，得改用 webhook（需一个 serverless 端点）。
