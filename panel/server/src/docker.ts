@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import http from 'node:http';
 import zlib from 'node:zlib';
 import Docker from 'dockerode';
-import type { Instance } from './store.js';
+import { instanceAppType, type Instance } from './store.js';
 
 const WECHAT_IMAGE = process.env.WOC_WECHAT_IMAGE || 'ghcr.io/gloridust/wechat-on-cloud:latest';
 const PUID = process.env.PUID || '1000';
@@ -114,6 +114,11 @@ function envList(inst: Instance): string[] {
   if (!ENABLE_GPU) env.push('DISABLE_DRI=1');
   // 透传 os 伪装开关给容器内的 00-woc-identity 钩子（决定是否把 /etc/os-release 改成 deepin）。
   env.push(`WOC_SPOOF_OS=${SPOOF_OS ? '1' : '0'}`);
+  // v1.2.0 多应用：透传应用类型给 02-woc-app 钩子（写入 /config/.woc-app，autostart 据此启动）。
+  // 老实例无 appType → instanceAppType 回退 wechat；自定义应用额外透传启动命令。
+  const appType = instanceAppType(inst);
+  env.push(`WOC_APP_TYPE=${appType}`);
+  if (appType === 'custom' && inst.customLaunch) env.push(`WOC_CUSTOM_LAUNCH=${inst.customLaunch}`);
   return env;
 }
 
@@ -404,11 +409,12 @@ async function execCapture(inst: Instance, cmd: string[]): Promise<string> {
   });
 }
 
-// 触发下载/安装（detached，立即返回，后台下载）。
+// 触发下载/安装（detached，立即返回，后台下载）。按实例 appType 分发：
+// app-ctl.sh wechat → 委托回 wechat-ctl.sh（微信逻辑零改动）；telegram 等各自实现。
 export async function triggerWechat(inst: Instance, cmd: 'install' | 'update'): Promise<void> {
   const c = docker.getContainer(inst.containerName);
   const exec = await c.exec({
-    Cmd: ['/woc/wechat-ctl.sh', cmd === 'update' ? 'update' : 'install'],
+    Cmd: ['/woc/app-ctl.sh', instanceAppType(inst), cmd === 'update' ? 'update' : 'install'],
     AttachStdout: false,
     AttachStderr: false,
     User: 'abc',

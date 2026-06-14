@@ -19,9 +19,17 @@ export interface WechatStatus {
 }
 
 export type RuntimeState = 'running' | 'stopped' | 'missing';
+export type AppType = 'wechat' | 'telegram' | 'chromium' | 'custom';
+export const APP_LABELS: Record<AppType, string> = {
+  wechat: '微信',
+  telegram: 'Telegram',
+  chromium: 'Chromium',
+  custom: '自定义应用',
+};
 export interface PanelInstance {
   id: string;
   name: string;
+  appType?: AppType; // 缺省（老实例）= wechat
   createdAt: string;
   createdBy: string;
   memSoftLimitMB?: number;
@@ -106,10 +114,10 @@ export const api = {
 
   // 微信实例
   listInstances: () => req<{ instances: InstanceWithStatus[] }>('/api/instances'),
-  createInstance: (name: string, allowedUserIds: string[] = [], reuseVolume?: string) =>
+  createInstance: (name: string, allowedUserIds: string[] = [], reuseVolume?: string, appType: AppType = 'wechat') =>
     req<{ instance: PanelInstance }>('/api/admin/instances', {
       method: 'POST',
-      body: JSON.stringify({ name, allowedUserIds, reuseVolume: reuseVolume || undefined }),
+      body: JSON.stringify({ name, allowedUserIds, reuseVolume: reuseVolume || undefined, appType }),
     }),
   regenMachineId: (id: string) =>
     req(`/api/admin/instances/${id}/regen-machine-id`, { method: 'POST' }),

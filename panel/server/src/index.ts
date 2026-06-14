@@ -28,6 +28,8 @@ import {
   renameInstance,
   setInstanceUsers,
   publicInstance,
+  APP_TYPES,
+  type AppType,
   type User,
   type Instance,
 } from './store.js';
@@ -270,11 +272,12 @@ app.get('/api/instances', async (req, reply) => {
 app.post('/api/admin/instances', async (req, reply) => {
   const admin = requireAdmin(req, reply);
   if (!admin) return;
-  const { name, reuseVolume } = (req.body as any) ?? {};
+  const { name, reuseVolume, appType } = (req.body as any) ?? {};
   const allowedUserIds = Array.isArray((req.body as any)?.allowedUserIds) ? (req.body as any).allowedUserIds : [];
   if (!name || String(name).trim().length === 0 || String(name).length > 30) {
     return reply.code(400).send({ error: '实例名称为 1-30 个字符' });
   }
+  const type: AppType = APP_TYPES.includes(appType) ? appType : 'wechat';
   // 复用卷：必须以 woc-data- 开头，且不能被现存实例占用。后端先校验，避免坏名穿透到 docker run。
   let reuseVolumeName: string | undefined;
   if (reuseVolume) {
@@ -286,7 +289,7 @@ app.post('/api/admin/instances', async (req, reply) => {
     }
     reuseVolumeName = reuseVolume;
   }
-  const inst = createInstance(String(name), admin.id, allowedUserIds, reuseVolumeName);
+  const inst = createInstance(String(name), admin.id, allowedUserIds, reuseVolumeName, type);
   try {
     await runInstance(inst);
   } catch (e: any) {

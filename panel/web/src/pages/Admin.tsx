@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, type PanelUser, type InstanceWithStatus, type VolEntry } from '../api';
+import { api, APP_LABELS, type PanelUser, type InstanceWithStatus, type VolEntry, type AppType } from '../api';
 import { useUI, PasswordInput } from '../ui';
 import { useAuth } from '../auth';
 
@@ -1367,8 +1367,17 @@ function CreateUser({ instances, onClose, onDone }: { instances: InstanceWithSta
   );
 }
 
+// 可创建的应用类型。ready=false 的暂时禁用（即将支持）。
+const APP_OPTIONS: { type: AppType; desc: string; ready: boolean }[] = [
+  { type: 'wechat', desc: '默认', ready: true },
+  { type: 'telegram', desc: '仅 x86_64', ready: true },
+  { type: 'chromium', desc: '即将支持', ready: false },
+  { type: 'custom', desc: '即将支持', ready: false },
+];
+
 function CreateInstance({ subs, onClose, onDone }: { subs: PanelUser[]; onClose: () => void; onDone: () => void }) {
   const [name, setName] = useState('');
+  const [appType, setAppType] = useState<AppType>('wechat');
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1394,7 +1403,7 @@ function CreateInstance({ subs, onClose, onDone }: { subs: PanelUser[]; onClose:
     setErr('');
     setBusy(true);
     try {
-      await api.createInstance(name.trim(), [...sel], reuse || undefined);
+      await api.createInstance(name.trim(), [...sel], reuse || undefined, appType);
       onDone();
     } catch (e: any) {
       setErr(e.message || '创建失败');
@@ -1406,8 +1415,27 @@ function CreateInstance({ subs, onClose, onDone }: { subs: PanelUser[]; onClose:
   return (
     <div className="modal-mask" onClick={onClose}>
       <form className="card modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
-        <h2>新建微信实例</h2>
-        <input className="input" placeholder="实例名称（如：我的微信 / 公司号）" value={name} onChange={(e) => setName(e.target.value)} />
+        <h2>新建实例</h2>
+        <div className="field-label">应用类型</div>
+        <div className="app-picker">
+          {APP_OPTIONS.map((o) => (
+            <button
+              key={o.type}
+              type="button"
+              className={'app-pick' + (appType === o.type ? ' sel' : '')}
+              disabled={!o.ready}
+              title={o.ready ? '' : '即将支持'}
+              onClick={() => o.ready && setAppType(o.type)}
+            >
+              <span className="app-pick-name">{APP_LABELS[o.type]}</span>
+              <span className="app-pick-desc">{o.desc}</span>
+            </button>
+          ))}
+        </div>
+        <input className="input" placeholder="实例名称（留空自动命名）" value={name} onChange={(e) => setName(e.target.value)} />
+        {appType === 'telegram' && (
+          <div className="muted small">Telegram 官方仅提供 x86_64 桌面版；arm64（树莓派 / 部分 NAS）暂不支持。</div>
+        )}
         <div className="field-label">允许访问的子账号（管理员默认可访问全部）</div>
         <ChipMultiSelect
           options={subs.map((u) => ({ id: u.id, label: u.username }))}
@@ -1433,7 +1461,9 @@ function CreateInstance({ subs, onClose, onDone }: { subs: PanelUser[]; onClose:
           </>
         )}
         {err && <div className="error">{err}</div>}
-        <div className="muted small" style={{ marginTop: 4 }}>创建后会拉起一个新的微信容器，进入后扫码登录。</div>
+        <div className="muted small" style={{ marginTop: 4 }}>
+          创建后拉起一个新的 {APP_LABELS[appType]} 容器；进入实例后点「下载并安装」，再登录即可。
+        </div>
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>
             取消

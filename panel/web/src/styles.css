@@ -2041,3 +2041,46 @@ button {
   opacity: 0.4;
   cursor: default;
 }
+
+/* ── 新建实例·应用类型选择 ─────────────────────────────── */
+.app-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+}
+.app-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 6px;
+  border: none;
+  border-radius: var(--r-small);
+  background: var(--trough);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: inset 0 1px 2px rgba(var(--shadow) / 0.1);
+  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.app-pick:hover:not(:disabled):not(.sel) {
+  background: var(--base);
+}
+.app-pick.sel {
+  background: var(--surface);
+  box-shadow: var(--crease-accent);
+}
+.app-pick.sel .app-pick-name {
+  color: var(--wx-green-dark);
+}
+.app-pick:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.app-pick-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.app-pick-desc {
+  font-size: 11px;
+  color: var(--muted);
+}
