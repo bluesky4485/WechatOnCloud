@@ -956,6 +956,10 @@ proxy.on('proxyReq', (proxyReq, req) => {
 proxy.on('proxyReqWs', (proxyReq, req) => {
   const auth = (req as any)._wocAuth;
   if (auth) proxyReq.setHeader('authorization', auth);
+  // 上游（实例 nginx → KasmVNC websockify）回 101 = ws 接收器接受了连接，桌面真正连上。
+  // 卡死时这条不会出现（接收器停止 accept），即可定位"卡在面板→实例之间还是实例内部"。
+  const instId = (req as any)._wocInstId;
+  if (instId) proxyReq.on('upgrade', () => appendInstanceLog(instId, '[vnc] 上游已接受(101) · 桌面连接建立'));
 });
 // 兜底：剥掉 KasmVNC 401 的 WWW-Authenticate 头，避免浏览器弹出原生 Basic Auth 登录框。
 // 正常路径下我们已注入正确凭据（不会 401）；万一凭据失配，宁可桌面加载失败也绝不把登录弹窗暴露给用户。
@@ -1054,7 +1058,17 @@ app.server.on('upgrade', (req: IncomingMessage, socket: Socket, head: Buffer) =>
   const inst = findInstance(parsed.id)!;
   req.url = parsed.rest;
   (req as any)._wocAuth = basicAuth(inst);
-  proxy.ws(req, socket, head, { target: instanceTarget(inst) });
+  (req as any)._wocInstId = inst.id;
+  // 远程桌面连接日志：记录每次 ws 连接尝试 / 上游接受(在 proxyReqWs 里) / 失败 / 关闭时长。
+  // 与实例容器内 KasmVNC 的 "got client connection" 按时间对齐，即可看出卡在哪一段。
+  const ip = (req.socket && req.socket.remoteAddress) || '?';
+  const uname = (u as any).username || '?';
+  appendInstanceLog(inst.id, `[vnc] 连接尝试 user=${uname} ip=${ip}`);
+  const t0 = Date.now();
+  socket.on('close', () => appendInstanceLog(inst.id, `[vnc] 连接关闭（持续 ${Math.round((Date.now() - t0) / 1000)}s）`));
+  proxy.ws(req, socket, head, { target: instanceTarget(inst) }, (err: any) => {
+    appendInstanceLog(inst.id, `[vnc] 连接失败：${err?.message || err}`);
+  });
 });
 
 // 探测面板网络 + 重启后把已登记实例的容器拉起来
